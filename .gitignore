@@ -1,0 +1,22 @@
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+
+# Build output
+dist/
+build/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# TypeScript cache
+*.tsbuildinfo
