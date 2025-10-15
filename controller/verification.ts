@@ -53,7 +53,7 @@ export async function verifyOTP(req: Request, res: Response) {
     if (!storedOTP)
         return res.status(400).json({ status: false, message: "OTP expired or not found" });
 
-    if (storedOTP !== otp)
+    if (Number(storedOTP) !== Number(otp))
         return res.status(400).json({ status: false, message: "Invalid OTP" });
 
     await UserModel.updateOne({ email }, { isVerified: true });
