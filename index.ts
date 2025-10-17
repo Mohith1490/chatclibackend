@@ -16,7 +16,7 @@ redisClient.connect().then(()=>{
 
 app.use(cors())
 app.use(express.json())
-app.use("/",VerificationRoute)
+app.use("/auth",VerificationRoute)
 
 mongoose
   .connect(process.env.MONGODB_URI as string)

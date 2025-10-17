@@ -3,63 +3,68 @@ import { UserModel } from "../models/userModel.ts";
 import crypto from "crypto";
 import { redisClient } from "../index.ts";
 import sendMail from "../util/emailVerification.ts";
+import jwt from "jsonwebtoken";
 
 export async function signup(req: Request, res: Response) {
-    try {
-        const { email, password } = req.body;
-        
-        const existingUser = await UserModel.findOne({ email }).exec();
-        if (existingUser) {
-            return res.status(400).json({
-                status: false,
-                message: "User already exists",
-            });
-        }
+  try {
+    const { email, password } = req.body;
 
-        const salt = process.env.HASH_SECRET!;
-        const hashedPassword = crypto
-            .pbkdf2Sync(password, salt, 1000, 64, "sha512")
-            .toString("hex");
-
-        const otp = crypto.randomInt(100000, 999999).toString();
-        await redisClient.set(email, otp, { EX: 300 });
-
-        sendMail(email, otp);
-
-        const newUser = new UserModel({
-            email,
-            hashedPassword,
-            isVerified: false,
-        });
-        await newUser.save();
-
-        return res.status(200).json({
-            status: true,
-            message: "User created. OTP sent to email.",
-        });
-    } catch (err) {
-        console.error("Signup error:", err);
-        return res.status(500).json({
-            status: false,
-            message: "Internal server error",
-        });
+    const existingUser = await UserModel.findOne({ email }).exec();
+    if (existingUser) {
+      return res.status(400).json({
+        status: false,
+        message: "User already exists",
+      });
     }
+
+    const salt = process.env.HASH_SECRET!;
+    const hashedPassword = crypto
+      .pbkdf2Sync(password, salt, 1000, 64, "sha512")
+      .toString("hex");
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    await redisClient.set(email, otp, { EX: 300 });
+
+    sendMail(email, otp);
+
+    const newUser = new UserModel({
+      email,
+      hashedPassword,
+      isVerified: false,
+    });
+    await newUser.save();
+
+    return res.status(200).json({
+      status: true,
+      message: "User created. OTP sent to email.",
+    });
+  } catch (err) {
+    console.error("Signup error:", err);
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error",
+    });
+  }
 }
 
 export async function verifyOTP(req: Request, res: Response) {
-    const { email, otp } = req.body;
-    const storedOTP = await redisClient.get(email);
+  const { email, otp } = req.body;
+  const storedOTP = await redisClient.get(email);
 
-    if (!storedOTP)
-        return res.status(400).json({ status: false, message: "OTP expired or not found" });
+  if (!storedOTP)
+    return res.status(400).json({ status: false, message: "OTP expired or not found" });
 
-    if (Number(storedOTP) !== Number(otp))
-        return res.status(400).json({ status: false, message: "Invalid OTP" });
+  if (Number(storedOTP) !== Number(otp))
+    return res.status(400).json({ status: false, message: "Invalid OTP" });
 
-    await UserModel.updateOne({ email }, { isVerified: true });
-    await redisClient.del(email);
+  await UserModel.updateOne({ email }, { isVerified: true });
+  await redisClient.del(email);
 
-    return res.status(200).json({ status: true, message: "Email verified successfully" });
+  const accessToken = jwt.sign({
+    emal: email,
+  }, process.env.JWT_SECRET!, { expiresIn: "5d" })
+
+  return res.status(200).json({ status: true, message: "Email verified successfully", token: accessToken });
 }
 
 export default async function signin(req: Request, res: Response) {
@@ -100,9 +105,14 @@ export default async function signin(req: Request, res: Response) {
       });
     }
 
+    const accessToken = jwt.sign({
+      emal: email,
+    }, process.env.JWT_SECRET!, { expiresIn: "5d" })
+
     return res.status(200).json({
       status: true,
       message: "Login successful",
+      token:accessToken,
       user: {
         email: userData.email,
       },
